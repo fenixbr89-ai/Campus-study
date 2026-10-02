@@ -74,13 +74,53 @@ def _feature_key_for_content(content_type: str) -> str | None:
 def visible_content_query(user: dict | None) -> dict:
     if not user or full_access(user):
         return {}
-    features = user.get("_feature_settings", {}).get("limitado", {})
-    blocked = [t for t in ("video", "pdf", "material", "resumo", "livro", "artigo", "questao") if not features.get(_feature_key_for_content(t) or "", False)]
+
+    blocked = []
+    for content_type in (
+        "video",
+        "pdf",
+        "material",
+        "resumo",
+        "livro",
+        "artigo",
+        "questao",
+    ):
+        feature = _feature_key_for_content(content_type)
+
+        defaults = {
+            "videoaulas": True,
+            "pdf": True,
+            "materiais": True,
+            "artigos": True,
+            "questoes": False,
+        }
+
+        features = user.get("_feature_settings", {}).get("limitado", {})
+        allowed = features.get(feature or "", defaults.get(feature or "", False))
+
+        if not allowed:
+            blocked.append(content_type)
+
     return {"type": {"$nin": blocked}} if blocked else {}
 
 def present_content(doc: dict, user: dict | None) -> dict:
     if user and not full_access(user):
         feature = _feature_key_for_content(doc.get("type", ""))
-        if feature and not user.get("_feature_settings", {}).get("limitado", {}).get(feature, False):
-            raise HTTPException(403, "Este recurso está disponível apenas no plano que inclui esta funcionalidade.")
+
+        defaults = {
+            "videoaulas": True,
+            "pdf": True,
+            "materiais": True,
+            "artigos": True,
+            "questoes": False,
+        }
+
+        features = user.get("_feature_settings", {}).get("limitado", {})
+
+        if feature and not features.get(feature, defaults.get(feature, False)):
+            raise HTTPException(
+                403,
+                "Este recurso está disponível apenas no plano que inclui esta funcionalidade.",
+            )
+
     return {k: v for k, v in doc.items() if k not in ("_id", "search_text")}

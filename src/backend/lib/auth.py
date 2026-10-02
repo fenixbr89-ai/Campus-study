@@ -4,7 +4,7 @@ from datetime import timedelta
 from fastapi import Depends, HTTPException, Request
 
 from lib.db import db
-from lib.security import SESSION_COOKIE, decode_session_token, now_utc
+from lib.security import SESSION_COOKIE, decode_session_token, now_utc, aware
 
 STAFF_ROLES = {"admin", "superadmin", "editor", "moderator"}
 
@@ -70,15 +70,15 @@ async def ensure_trial(user: dict) -> dict:
 def has_premium(user: dict) -> bool:
     if user.get("role") in STAFF_ROLES:
         return True
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = now_utc()
     for grant in user.get("_access_grants", []):
-        if grant.get("feature") in PREMIUM_FEATURES and grant.get("expires_at") and grant["expires_at"] > now:
+        expires_at = aware(grant.get("expires_at"))
+        if grant.get("feature") in PREMIUM_FEATURES and expires_at and expires_at > now:
             return True
     return False
 
 def trial_active(user: dict) -> bool:
-    ends = user.get("trial_ends_at")
+    ends = aware(user.get("trial_ends_at"))
     if not ends:
         return True
     return ends > now_utc()
