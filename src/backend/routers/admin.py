@@ -362,13 +362,11 @@ def _parse_content_zip(raw: bytes) -> list[dict]:
             continue
         path = _safe_zip_name(info.filename)
         parts = path.split("/")
-        # Ignore a single wrapper directory such as Campus-study-main/.
-        if len(parts) >= 5 and parts[0].lower() in {"campus-study-main", "campusstudy", "campus-study"}:
-            parts = parts[1:]
+        filename = parts[-1]
+        # Aceita qualquer pasta externa antes da estrutura Curso/Período/Disciplina/Assunto.
         if len(parts) < 5:
             continue
-        course, period, discipline, topic = parts[:4]
-        filename = parts[4]
+        course, period, discipline, topic = parts[-5:-1]
         lower = filename.lower()
         kind = None
         if lower == "material-principal.pdf": kind = "material"
