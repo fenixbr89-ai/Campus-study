@@ -1,7 +1,7 @@
 export function NativeSelect({
   value, onChange, children, testId, className = "", disabled,
 }: {
-  value: string; onChange: (v: string) => void; children: React.ReactNode; testId: string; className?: string; disabled?: boolean;
+  value: string; onChange: (v: string) => void; children: React.ReactNode; testId?: string; className?: string; disabled?: boolean;
 }) {
   return (
     <select
