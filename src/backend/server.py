@@ -16,7 +16,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from lib.db import client, db, ensure_indexes  # noqa: E402
-from routers import admin, auth, catalog, study, features, payments, ai
+from routers import admin, auth, catalog, study, features, payments, ai, support, system_status
 
 
 async def _ai_generation_worker(stop_event: asyncio.Event):
