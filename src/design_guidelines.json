@@ -1,0 +1,32 @@
+{
+  "project_name": "Campus Study",
+  "archetype": "Organic & Earthy EdTech Clean",
+  "language": "pt-BR",
+  "locale_conventions": {"currency":"BRL (R$)","date_format":"DD/MM/AAAA","number_format":"1.234,56","cpf_format":"000.000.000-00"},
+  "colors": {
+    "accent": "#16a34a",
+    "accent_dark": "#15803d",
+    "accent_soft": "#f0fdf4",
+    "page_background": "#f0fdf4",
+    "surface": "#ffffff",
+    "border": "#dcfce7",
+    "text": "#0f172a",
+    "muted": "#64748b"
+  },
+  "navigation": {
+    "mobile": ["Início", "Buscar", "Cursos", "Campus AI", "Perfil"],
+    "admin_mobile_extra": "Admin",
+    "desktop": "sidebar"
+  },
+  "curriculum": "Curso → Período → Disciplina → Assunto → Materiais",
+  "materials": ["PDF", "Vídeo", "Artigo científico", "Livro", "Mapa mental", "Imagem", "Simulado", "Material de apoio"],
+  "rules": [
+    "Não inventar URLs, autores, DOI, vídeos ou fontes.",
+    "Materiais externos devem preservar a URL original e indicar a fonte.",
+    "Novos recursos externos devem ser validados antes de publicação.",
+    "A interface principal usa a identidade verde do Campus Study; não usar fundo escuro como padrão.",
+    "Não há cobrança, assinatura ou checkout na versão atual.",
+    "A área administrativa deve ser protegida no backend e acessível no celular."
+  ],
+  "accessibility": {"touch_targets":"mínimo 44x44px","contrast":"WCAG AA"}
+}
