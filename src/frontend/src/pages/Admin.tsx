@@ -8,7 +8,7 @@ import { errMsg, isAdmin, useMe, usePageMeta } from "@/lib/hooks";
 import { beginSession } from "@/lib/session";
 import { queryClient } from "@/lib/queryClient";
 import type { Me } from "@/lib/types";
-import { DIFF_LABELS, STATUS_LABELS, TYPE_LABELS, TYPE_PLURAL, formatDate } from "@/lib/format";
+import { DIFF_LABELS, STATUS_LABELS, TYPE_LABELS, TYPE_PLURAL, formatDate, mindToText, textToMind } from "@/lib/format";
 import type {
   AdminLog, AdminStats, AdminUser, Content, ContentIn, ContentPage, ContentType, Course, Discipline,
   Message, Period, Settings, Status, Submission, SubmissionStatus, Topic, AdminStudent, SupportTicket, SystemStatus,
@@ -171,12 +171,12 @@ function Structure() {
 }
 
 // ---------- contents ----------
-interface Form { id?: string; sel: TopicSel; c: ContentIn; tags: string; optionsText: string }
+interface Form { id?: string; sel: TopicSel; c: ContentIn; tags: string; optionsText: string; mindText: string }
 
 const LINK_BADGE: Record<string, [string, string]> = { funcionando: ["🟢 Funcionando", "bg-green-100 text-green-800"], indisponivel: ["🔴 Indisponível", "bg-red-100 text-red-800"], verificar: ["🟡 Precisa verificar", "bg-amber-100 text-amber-800"] };
 
 function newForm(type: ContentType): Form {
-  return { sel: EMPTY_SEL, tags: "", optionsText: "",
+  return { sel: EMPTY_SEL, tags: "", optionsText: "", mindText: "Tema central\n  Conceito principal\n  Aplicações",
     c: { type, title: "", description: "", topic_id: "", tags: [], difficulty: "", status: "publicado", data: type === "questao" ? { correct_index: 0 } : {} } };
 }
 
@@ -197,6 +197,7 @@ function ContentsAdmin({ videosOnly }: { videosOnly: boolean }) {
     mutationFn: (f: Form) => {
       const data = { ...f.c.data };
       if (f.c.type === "questao") data.options = f.optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
+      if (f.c.type === "mapa") data.root = textToMind(f.mindText);
       const body: ContentIn = { ...f.c, topic_id: f.sel.topic_id || f.c.topic_id, tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean), data };
       return f.id ? apiPut<Content>(`/admin/contents/${f.id}`, body) : apiPost<Content>("/admin/contents", body);
     },
@@ -226,7 +227,7 @@ function ContentsAdmin({ videosOnly }: { videosOnly: boolean }) {
   });
   const check = useMutation({ mutationFn: (id: string) => apiPost<Message>(`/admin/contents/${id}/check-link`), onSuccess: (r) => { toast.info(r.message); refresh(); }, onError: (e) => toast.error(errMsg(e)) });
   const checkAll = useMutation({ mutationFn: () => apiPost<Message>("/admin/videos/check-all"), onSuccess: (r) => { toast.info(r.message); refresh(); }, onError: (e) => toast.error(errMsg(e)) });
-  const edit = (c: Content) => setForm({ id: c.id, sel: { ...EMPTY_SEL, topic_id: c.topic_id }, tags: c.tags.join(", "), optionsText: (c.data.options ?? []).join("\n"),
+  const edit = (c: Content) => setForm({ id: c.id, sel: { ...EMPTY_SEL, topic_id: c.topic_id }, tags: c.tags.join(", "), optionsText: (c.data.options ?? []).join("\n"), mindText: c.data.root ? mindToText(c.data.root) : "Tema central\n  Conceito principal\n  Aplicações",
     c: { type: c.type, title: c.title, description: c.description, topic_id: c.topic_id, tags: c.tags, difficulty: c.difficulty, status: c.status, data: c.data } });
   const setData = (k: string, v: string | number) => form && setForm({ ...form, c: { ...form.c, data: { ...form.c.data, [k]: v } } });
   const fieldsFor: Record<ContentType, [string, string, boolean?][]> = {
@@ -236,6 +237,7 @@ function ContentsAdmin({ videosOnly }: { videosOnly: boolean }) {
     artigo: [["authors", "Autores *"], ["year", "Ano"], ["journal", "Revista / fonte"], ["doi", "DOI"], ["url", "URL"], ["abstract", "Resumo", true], ["keywords", "Palavras-chave"]],
     resumo: [["body", "Texto do resumo (Markdown)", true]], material: [["body", "Conteúdo (Markdown)", true], ["url", "Link (opcional)"]],
     questao: [["statement", "Enunciado", true], ["explanation", "Explicação", true]],
+    mapa: [],
   };
   return (
     <div className="space-y-4">
@@ -333,6 +335,7 @@ function ContentsAdmin({ videosOnly }: { videosOnly: boolean }) {
                   </NativeSelect>
                 </>
               )}
+              {form.c.type === "mapa" && <Textarea data-testid="admin-content-mind-input" rows={10} className="font-mono text-sm" placeholder="Tema central\n  Ramo principal\n    Subramo" value={form.mindText} onChange={(e) => setForm({ ...form, mindText: e.target.value })} />}
               <Input data-testid="admin-content-tags-input" placeholder="Tags (separadas por vírgula)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
               <div className="grid grid-cols-2 gap-2">
                 <NativeSelect testId="admin-content-difficulty-select" value={form.c.difficulty} onChange={(v) => setForm({ ...form, c: { ...form.c, difficulty: v as ContentIn["difficulty"] } })}>
@@ -643,7 +646,7 @@ function SettingsAdmin() {
     );
   }
 
-  const featureLabels: Record<string,string> = { pdf:"PDFs", videoaulas:"Videoaulas", resumos:"Resumos", materiais:"Materiais de estudo", artigos:"Artigos científicos", questoes:"Questões", simulados:"Simulados", ranking:"Ranking", anotacoes:"Anotações", favoritos:"Favoritos" };
+  const featureLabels: Record<string,string> = { pdf:"PDFs", videoaulas:"Videoaulas", resumos:"Resumos", materiais:"Materiais de estudo", artigos:"Artigos científicos", questoes:"Questões", mapas:"Mapas mentais", simulados:"Simulados", ranking:"Ranking", anotacoes:"Anotações", favoritos:"Favoritos" };
   const toggleFeature = (plan: "limitado"|"ilimitado", key: keyof Settings["features"]["limitado"]) => setForm({ ...form, features: { ...form.features, [plan]: { ...form.features[plan], [key]: !form.features[plan][key] } } });
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -678,32 +681,113 @@ function SettingsAdmin() {
 function ContentZipImporter() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any>(null);
-  const [busy, setBusy] = useState(false); const [replaceConflicts, setReplaceConflicts] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [replaceConflicts, setReplaceConflicts] = useState(false);
+
+  useEffect(() => {
+    if (!preview?.import_id || !["queued", "processing"].includes(preview.status)) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const status = await apiGet<any>(`/admin/content/import/${preview.import_id}/status`);
+        if (!active) return;
+        setPreview((current: any) => ({ ...current, ...status }));
+        if (status.status === "confirmed") {
+          const created = (status.results ?? []).filter((x: any) => String(x.result).startsWith("created")).length;
+          toast.success(`Importação concluída: ${created} itens processados.`);
+          setPreview(null);
+          setFile(null);
+        } else if (status.status === "failed") {
+          toast.error(status.error || "A importação falhou.");
+          setBusy(false);
+        }
+      } catch (e) {
+        if (active) toast.error(errMsg(e));
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 1500);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [preview?.import_id, preview?.status]);
+
   const previewZip = async () => {
     if (!file) return;
     setBusy(true);
     try {
-      const fd = new FormData(); fd.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
       setPreview(await apiUpload<any>("/admin/content/import/preview", fd));
       toast.success("Prévia gerada. Revise antes de confirmar.");
-    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
   };
+
   const confirmImport = async () => {
     if (!preview?.import_id) return;
     setBusy(true);
-    try { const decisions=Object.fromEntries((preview.conflicts??[]).map((p:string)=>[p,replaceConflicts?"replace":"keep"])); const r=await apiPost<any>(`/admin/content/import/${preview.import_id}/confirm`, {decisions}); toast.success(`Importação concluída: ${r.results.filter((x:any)=>String(x.result).startsWith("created")).length} itens processados.`); setPreview(null); setFile(null); }
-    catch(e){toast.error(errMsg(e));} finally{setBusy(false);}
+    try {
+      const decisions = Object.fromEntries((preview.conflicts ?? []).map((p: string) => [p, replaceConflicts ? "replace" : "keep"]));
+      const r = await apiPost<any>(`/admin/content/import/${preview.import_id}/confirm`, { decisions });
+      setPreview((current: any) => ({ ...current, ...r }));
+      toast.success("Importação iniciada. Você pode acompanhar o progresso.");
+    } catch (e) {
+      toast.error(errMsg(e));
+      setBusy(false);
+    }
   };
+
   const cancelImport = async () => {
-    if (!preview?.import_id) return;
-    try { await apiDelete(`/admin/content/import/${preview.import_id}`); setPreview(null); toast.success("Importação cancelada."); } catch(e){toast.error(errMsg(e));}
+    if (!preview?.import_id || preview.status !== "preview") return;
+    try {
+      await apiDelete(`/admin/content/import/${preview.import_id}`);
+      setPreview(null);
+      toast.success("Importação cancelada.");
+    } catch (e) {
+      toast.error(errMsg(e));
+    }
   };
+
+  const progress = preview?.total ? Math.min(100, Math.round((Number(preview.processed ?? 0) / Number(preview.total)) * 100)) : 0;
   return <div className="space-y-5">
-    <div className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-bold">Importar Conteúdo por ZIP</h2><p className="mt-1 text-sm text-slate-500">O sistema identifica automaticamente Curso → Período → Disciplina → Assunto pela estrutura das pastas.</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3"><Input type="file" accept=".zip,application/zip" onChange={e=>setFile(e.target.files?.[0]??null)} /><Button onClick={previewZip} disabled={!file||busy}>{busy?"Processando...":"Gerar prévia"}</Button></div>
+    <div className="rounded-2xl border bg-white p-5">
+      <h2 className="text-xl font-bold">Importar Conteúdo por ZIP</h2>
+      <p className="mt-1 text-sm text-slate-500">O sistema identifica automaticamente Curso → Período → Disciplina → Assunto pela estrutura das pastas.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Input type="file" accept=".zip,application/zip" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <Button onClick={previewZip} disabled={!file || busy}>{busy ? "Processando..." : "Gerar prévia"}</Button>
+      </div>
     </div>
-    {preview&&<div className="rounded-2xl border bg-white p-5"><div className="flex items-center justify-between gap-3"><div><h3 className="font-bold">Prévia da importação</h3><p className="text-xs text-slate-500">{preview.entries} arquivos reconhecidos</p></div><div className="flex gap-2"><Button variant="outline" onClick={cancelImport}>Cancelar</Button><Button onClick={confirmImport} disabled={busy}>Confirmar importação</Button></div></div>
-      <div className="mt-4">{(preview.conflicts??[]).length>0&&<div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><b>Conteúdos já existentes:</b> {preview.conflicts.length}. <label className="ml-2 inline-flex items-center gap-2"><input type="checkbox" checked={replaceConflicts} onChange={e=>setReplaceConflicts(e.target.checked)}/> substituir os existentes</label><span className="ml-2">desmarcado = manter os existentes.</span></div>}<div className="space-y-3">{(preview.groups??[]).map((g:any)=><div key={g.path} className="rounded-xl border p-3"><p className="font-semibold">{g.path.split("/").map((x:string)=>x.replaceAll("_"," ")).join(" → ")}</p><ul className="mt-2 space-y-1 text-sm text-slate-600">{g.files.map((f:any)=><li key={f.path}>• {f.filename} — {Math.round(f.size/1024)} KB</li>)}</ul></div>)}</div></div>
+    {preview && <div className="rounded-2xl border bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-bold">Prévia da importação</h3>
+          <p className="text-xs text-slate-500">{preview.entries ?? preview.total ?? 0} arquivos reconhecidos</p>
+        </div>
+        <div className="flex gap-2">
+          {preview.status === "preview" && <Button variant="outline" onClick={cancelImport}>Cancelar</Button>}
+          {preview.status === "preview" && <Button onClick={confirmImport} disabled={busy}>Confirmar importação</Button>}
+        </div>
+      </div>
+      {["queued", "processing"].includes(preview.status) && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="flex items-center justify-between gap-3 text-sm font-semibold"><span>{preview.status === "queued" ? "Importação aguardando processamento..." : "Importando conteúdo..."}</span><span>{preview.processed ?? 0}/{preview.total ?? preview.entries ?? 0}</span></div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${progress}%` }} /></div>
+        <p className="mt-2 text-xs text-emerald-800">Você pode continuar usando o painel enquanto a importação é processada.</p>
+      </div>}
+      {preview.status === "failed" && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{preview.error || "A importação falhou."}</div>}
+      {preview.status === "preview" && <div className="mt-4">
+        {(preview.conflicts ?? []).length > 0 && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <b>Conteúdos já existentes:</b> {preview.conflicts.length}.
+          <label className="ml-2 inline-flex items-center gap-2"><input type="checkbox" checked={replaceConflicts} onChange={e => setReplaceConflicts(e.target.checked)} /> substituir os existentes</label>
+          <span className="ml-2">desmarcado = manter os existentes.</span>
+        </div>}
+        <div className="space-y-3">{(preview.groups ?? []).map((g: any) => <div key={g.path} className="rounded-xl border p-3">
+          <p className="font-semibold">{g.path.split("/").map((x: string) => x.replaceAll("_", " ")).join(" → ")}</p>
+          <ul className="mt-2 space-y-1 text-sm text-slate-600">{g.files.map((f: any) => <li key={f.path}>• {f.filename} — {Math.round(f.size / 1024)} KB</li>)}</ul>
+        </div>)}</div>
+      </div>}
     </div>}
   </div>;
 }

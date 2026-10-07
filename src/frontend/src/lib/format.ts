@@ -35,6 +35,7 @@ export const TYPE_LABELS: Record<ContentType, string> = {
   resumo: "Resumo",
   questao: "Questão",
   material: "Material",
+  mapa: "Mapa mental",
 };
 
 export const TYPE_PLURAL: Record<ContentType, string> = {
@@ -45,6 +46,7 @@ export const TYPE_PLURAL: Record<ContentType, string> = {
   resumo: "Resumos",
   questao: "Questões",
   material: "Materiais",
+  mapa: "Mapas mentais",
 };
 
 export const DIFF_LABELS: Record<string, string> = { "": "Todas", facil: "Fácil", medio: "Média", dificil: "Difícil" };

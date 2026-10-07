@@ -12,7 +12,7 @@ def new_id() -> str:
 
 
 Status = Literal["publicado", "rascunho", "arquivado"]
-ContentType = Literal["video", "pdf", "livro", "artigo", "resumo", "questao", "material"]
+ContentType = Literal["video", "pdf", "livro", "artigo", "resumo", "questao", "material", "mapa"]
 Difficulty = Literal["", "facil", "medio", "dificil"]
 
 
@@ -781,6 +781,7 @@ class PlanFeatures(BaseModel):
     materiais: bool = True
     artigos: bool = True
     questoes: bool = False
+    mapas: bool = True
     simulados: bool = False
     campus_ai: bool = True
     ranking: bool = True

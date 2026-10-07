@@ -151,7 +151,7 @@ export function DisciplinePage() {
   );
 }
 
-const TABS = ["todos", "pdf", "resumo", "video", "artigo", "simulado", "questao"] as const;
+const TABS = ["todos", "pdf", "resumo", "video", "artigo", "mapa", "simulado", "questao"] as const;
 type TopicTab = typeof TABS[number];
 
 type BookHit = { id: string; volumeInfo?: { title?: string; authors?: string[]; publishedDate?: string; imageLinks?: { thumbnail?: string }; previewLink?: string; infoLink?: string }; accessInfo?: { webReaderLink?: string; pdf?: { isAvailable?: boolean; acsTokenLink?: string } } };
@@ -248,7 +248,7 @@ function StudySessionCard({ topicId }: { topicId: string }) {
 }
 
 function tabLabel(tab: TopicTab, count: number) {
-  const labels: Record<TopicTab,string> = { todos:"Tudo", pdf:"Material Principal", resumo:"Resumo", video:"Videoaulas", artigo:"Artigos científicos", simulado:"Simulados", questao:"Questões" };
+  const labels: Record<TopicTab,string> = { todos:"Tudo", pdf:"Material Principal", resumo:"Resumo", video:"Videoaulas", artigo:"Artigos científicos", mapa:"Mapas mentais", simulado:"Simulados", questao:"Questões" };
   return `${labels[tab]} (${count})`;
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, BarChart3, CalendarDays, Check, CheckCircle2, Clock, Flame, GraduationCap, HelpCircle, Loader2, NotebookPen, Play, Plus, Search, Square, Target, Trash2, Trophy, Edit3 } from "lucide-react";
+import { ArrowRight, BarChart3, CalendarDays, Network, Check, CheckCircle2, Clock, Flame, GraduationCap, HelpCircle, Loader2, NotebookPen, Play, Plus, Search, Square, Target, Trash2, Trophy, Edit3 } from "lucide-react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { toast } from "sonner";
 import { errMsg, useMe, usePageMeta } from "@/lib/hooks";
@@ -34,6 +34,7 @@ export function SearchHero({ initial = "", autoFocus = false }: { initial?: stri
 }
 
 const TOOLS = [
+  { to: "/mapas-mentais", icon: Network, label: "Mapas mentais", desc: "Visualize conexões entre os conteúdos" },
   { to: "/ranking", icon: Trophy, label: "Ranking", desc: "Acompanhe sua pontuação mensal", featured: true },
   { to: "/simulados", icon: HelpCircle, label: "Simulados", desc: "Treine com nota e explicações" },
   { to: "/biblioteca", icon: NotebookPen, label: "Salvos", desc: "Acesse seus materiais e resumos", wide: true },

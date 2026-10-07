@@ -47,6 +47,7 @@ import PlansPage from "@/pages/Plans";
 import SupportPage from "@/pages/Support";
 import AboutPage from "@/pages/About";
 import StatusPage from "@/pages/Status";
+import MindMapsPage from "@/pages/MindMaps";
 import CheckoutPage from "@/pages/Checkout";
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -163,6 +164,11 @@ export default function App() {
           <Route
             path="/anotacoes"
             element={auth(<NotesPage />)}
+          />
+
+          <Route
+            path="/mapas-mentais"
+            element={auth(<MindMapsPage />)}
           />
 
           <Route

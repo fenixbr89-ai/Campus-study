@@ -92,13 +92,25 @@ async def lifespan(app: FastAPI):
         {"status": "running"},
         {"$set": {"status": "queued", "updated_at": datetime.now(timezone.utc)}}
     )
+    await db.content_imports.update_many(
+        {"status": "processing"},
+        {"$set": {"status": "queued", "updated_at": datetime.now(timezone.utc)}}
+    )
     app.state.ai_stop_event = asyncio.Event()
     app.state.ai_worker = asyncio.create_task(_ai_generation_worker(app.state.ai_stop_event))
+    app.state.import_stop_event = asyncio.Event()
+    app.state.import_worker = asyncio.create_task(admin.content_import_worker(app.state.import_stop_event))
     yield
     app.state.ai_stop_event.set()
+    app.state.import_stop_event.set()
     app.state.ai_worker.cancel()
+    app.state.import_worker.cancel()
     try:
         await app.state.ai_worker
+    except asyncio.CancelledError:
+        pass
+    try:
+        await app.state.import_worker
     except asyncio.CancelledError:
         pass
     client.close()

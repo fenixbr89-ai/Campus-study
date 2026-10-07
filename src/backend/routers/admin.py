@@ -1,11 +1,13 @@
 """Admin panel API — every route requires role admin/superadmin (checked server-side)."""
 
+import asyncio
 import math
 import re
 import uuid
 import io
 import json
 import zipfile
+import tempfile
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -491,7 +493,7 @@ async def import_content_preview(file: UploadFile = File(...), admin: dict = Dep
     await db.content_imports.insert_one({"id": import_id, "gridfs_name": import_id + ".zip", "filename": file.filename,
                                          "entries": entries, "created_at": now_utc(), "admin_id": admin["id"], "status": "preview"})
     await log_admin(admin, "gerou prévia de importação ZIP", "conteúdo", import_id)
-    return {"import_id": import_id, "filename": file.filename, "entries": len(entries), "groups": preview, "conflicts": conflicts}
+    return {"import_id": import_id, "filename": file.filename, "entries": len(entries), "total": len(entries), "processed": 0, "status": "preview", "groups": preview, "conflicts": conflicts}
 
 async def _find_or_create_hierarchy(course_name: str, period_name_value: str, discipline_name: str, topic_name: str):
     cs = slugify(course_name)
@@ -630,43 +632,183 @@ async def _store_import_content(bucket, topic: dict, kind: str, filename: str, d
         created += 1
     return f"created:{created}"
 
+async def _process_content_import_job(job: dict, stop_event: asyncio.Event) -> None:
+    import_id = job["id"]
+    package = await db.content_imports.find_one({"id": import_id}, P)
+    if not package:
+        return
+
+    entries = package.get("entries") or []
+    decisions = package.get("decisions") or {}
+    processed = int(package.get("processed", 0) or 0)
+    results = list(package.get("results") or [])
+    storage = AsyncIOMotorGridFSBucket(db, bucket_name="campus_files")
+    hierarchy_cache: dict[tuple[str, str, str, str], dict] = {}
+
+    try:
+        bucket = AsyncIOMotorGridFSBucket(db, bucket_name="campus_imports")
+        stream = await bucket.open_download_stream_by_name(package["gridfs_name"])
+
+        # Keep the ZIP seekable for zipfile without holding a large import entirely in RAM.
+        with tempfile.SpooledTemporaryFile(max_size=10 * 1024 * 1024, mode="w+b") as tmp:
+            while True:
+                chunk = await stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+            tmp.seek(0)
+
+            with zipfile.ZipFile(tmp) as zf:
+                for index in range(processed, len(entries)):
+                    if stop_event.is_set():
+                        await db.content_imports.update_one(
+                            {"id": import_id},
+                            {"$set": {"status": "queued", "processed": processed, "results": results, "updated_at": now_utc()}},
+                        )
+                        return
+
+                    e = entries[index]
+                    try:
+                        key = (e["course"], e["period"], e["discipline"], e["topic"])
+                        topic = hierarchy_cache.get(key)
+                        if topic is None:
+                            _, _, _, topic = await _find_or_create_hierarchy(*key)
+                            hierarchy_cache[key] = topic
+
+                        decision = str(decisions.get(e["path"], "keep")).lower()
+                        if decision not in {"keep", "replace", "cancel"}:
+                            decision = "keep"
+
+                        if decision == "cancel":
+                            result = "cancelled"
+                        else:
+                            if decision == "replace":
+                                ctype = {"material": "material", "resumo": "resumo", "questao": "questao", "questoes_json": "questao"}.get(e["kind"])
+                                if ctype:
+                                    await db.contents.delete_many({
+                                        "topic_id": topic["id"],
+                                        "type": ctype,
+                                        "title": {"$in": ["Material Principal", "Resumo", "Questões"]},
+                                    })
+
+                            with zf.open(e["path"], "r") as entry_stream:
+                                data = entry_stream.read()
+                            result = await _store_import_content(
+                                storage, topic, e["kind"], e["filename"], data, e
+                            )
+
+                        results.append({"path": e["path"], "result": result})
+                    except Exception as exc:
+                        results.append({"path": e["path"], "result": "error", "error": str(exc)[:300]})
+
+                    processed = index + 1
+                    await db.content_imports.update_one(
+                        {"id": import_id},
+                        {"$set": {
+                            "processed": processed,
+                            "results": results,
+                            "updated_at": now_utc(),
+                        }},
+                    )
+                    await asyncio.sleep(0)
+
+        await db.content_imports.update_one(
+            {"id": import_id},
+            {"$set": {
+                "status": "confirmed",
+                "processed": len(entries),
+                "results": results,
+                "confirmed_at": now_utc(),
+                "updated_at": now_utc(),
+            }},
+        )
+        admin_name = package.get("admin_name") or "Administrador"
+        await db.admin_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "admin_id": package["admin_id"],
+            "admin_name": admin_name,
+            "action": "confirmou importação ZIP",
+            "entity": "conteúdo",
+            "entity_id": import_id,
+            "at": now_utc(),
+        })
+    except Exception as exc:
+        await db.content_imports.update_one(
+            {"id": import_id},
+            {"$set": {
+                "status": "failed",
+                "processed": processed,
+                "results": results,
+                "error": str(exc)[:500],
+                "updated_at": now_utc(),
+            }},
+        )
+
+
+async def content_import_worker(stop_event: asyncio.Event) -> None:
+    """Process ZIP imports outside the HTTP request and resume queued jobs after restarts."""
+    while not stop_event.is_set():
+        job = await db.content_imports.find_one_and_update(
+            {"status": "queued"},
+            {"$set": {"status": "processing", "started_at": now_utc(), "updated_at": now_utc()}},
+            sort=[("created_at", 1)],
+            projection={"_id": 0},
+        )
+        if not job:
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                pass
+            continue
+        await _process_content_import_job(job, stop_event)
+
+
 @router.post("/content/import/{import_id}/confirm")
 async def import_content_confirm(import_id: str, body: dict = {}, admin: dict = Depends(admin_user)):
     package = await db.content_imports.find_one({"id": import_id, "admin_id": admin["id"], "status": "preview"}, P)
     if not package:
         raise HTTPException(404, "Prévia de importação não encontrada ou já processada.")
-    bucket = AsyncIOMotorGridFSBucket(db, bucket_name="campus_imports")
-    stream = await bucket.open_download_stream_by_name(package["gridfs_name"])
-    raw = await stream.read()
-    if not raw:
-        raise HTTPException(404, "Arquivo temporário da importação não encontrado.")
-    zf = zipfile.ZipFile(io.BytesIO(raw))
-    files_map = {_safe_zip_name(i.filename): zf.read(i) for i in zf.infolist() if not i.is_dir()}
-    storage = AsyncIOMotorGridFSBucket(db, bucket_name="campus_files")
-    results = []
-    for e in package["entries"]:
-        try:
-            _, _, _, topic = await _find_or_create_hierarchy(e["course"], e["period"], e["discipline"], e["topic"])
-            decision = str((body.get("decisions") or {}).get(e["path"], "keep")).lower()
-            if decision not in {"keep", "replace", "cancel"}:
-                decision = "keep"
-            if decision == "cancel":
-                results.append({"path": e["path"], "result": "cancelled"})
-                continue
-            if decision == "replace":
-                ctype = {"material":"material","resumo":"resumo","questao":"questao","questoes_json":"questao"}.get(e["kind"])
-                if ctype:
-                    await db.contents.delete_many({"topic_id": topic["id"], "type": ctype, "title": {"$in": ["Material Principal","Resumo","Questões"]}})
-                else:
-                    ctype = "video" if e["kind"] == "videos" else "artigo"
-                    # URLs are checked again during insertion.
-            result = await _store_import_content(storage, topic, e["kind"], e["filename"], files_map[e["path"]], e)
-            results.append({"path": e["path"], "result": result})
-        except Exception as exc:
-            results.append({"path": e["path"], "result": "error", "error": str(exc)[:300]})
-    await db.content_imports.update_one({"id": import_id}, {"$set": {"status": "confirmed", "confirmed_at": now_utc(), "results": results}})
-    await log_admin(admin, "confirmou importação ZIP", "conteúdo", import_id)
-    return {"import_id": import_id, "results": results}
+
+    decisions = body.get("decisions") or {}
+    await db.content_imports.update_one(
+        {"id": import_id},
+        {"$set": {
+            "status": "queued",
+            "decisions": decisions,
+            "processed": 0,
+            "results": [],
+            "error": "",
+            "admin_name": admin.get("name", ""),
+            "updated_at": now_utc(),
+        }},
+    )
+    return {
+        "import_id": import_id,
+        "status": "queued",
+        "total": len(package.get("entries") or []),
+        "processed": 0,
+    }
+
+
+@router.get("/content/import/{import_id}/status")
+async def import_content_status(import_id: str, admin: dict = Depends(admin_user)):
+    package = await db.content_imports.find_one(
+        {"id": import_id, "admin_id": admin["id"]},
+        {"_id": 0, "id": 1, "status": 1, "processed": 1, "entries": 1, "results": 1, "error": 1},
+    )
+    if not package:
+        raise HTTPException(404, "Importação não encontrada.")
+
+    total = len(package.get("entries") or [])
+    return {
+        "import_id": import_id,
+        "status": package.get("status", "preview"),
+        "processed": int(package.get("processed", 0) or 0),
+        "total": total,
+        "results": package.get("results") or [] if package.get("status") in {"confirmed", "failed"} else [],
+        "error": package.get("error") or "",
+    }
+
 
 @router.delete("/content/import/{import_id}")
 async def import_content_cancel(import_id: str, admin: dict = Depends(admin_user)):

@@ -69,7 +69,7 @@ async def denormalize_content(doc: dict) -> dict:
 
 
 def _feature_key_for_content(content_type: str) -> str | None:
-    return {"video": "videoaulas", "pdf": "pdf", "material": "materiais", "resumo": "resumos", "livro": "materiais", "artigo": "artigos", "questao": "questoes"}.get(content_type)
+    return {"video": "videoaulas", "pdf": "pdf", "material": "materiais", "resumo": "resumos", "livro": "materiais", "artigo": "artigos", "questao": "questoes", "mapa": "mapas"}.get(content_type)
 
 def visible_content_query(user: dict | None) -> dict:
     if not user or full_access(user):
@@ -84,6 +84,7 @@ def visible_content_query(user: dict | None) -> dict:
         "livro",
         "artigo",
         "questao",
+        "mapa",
     ):
         feature = _feature_key_for_content(content_type)
 
@@ -94,6 +95,7 @@ def visible_content_query(user: dict | None) -> dict:
             "materiais": True,
             "artigos": False,
             "questoes": False,
+            "mapas": True,
         }
 
         features = user.get("_feature_settings", {}).get("limitado", {})
@@ -115,6 +117,7 @@ def present_content(doc: dict, user: dict | None) -> dict:
             "materiais": True,
             "artigos": False,
             "questoes": False,
+            "mapas": True,
         }
 
         features = user.get("_feature_settings", {}).get("limitado", {})

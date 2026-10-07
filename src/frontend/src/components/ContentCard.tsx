@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, ExternalLink, FileText, PlayCircle } from "lucide-react";
+import { Bookmark, BookmarkCheck, ExternalLink, FileText, Network, PlayCircle } from "lucide-react";
 import { apiPost, apiAssetUrl } from "@/lib/api";
 import { errMsg, useMe } from "@/lib/hooks";
 import { DIFF_LABELS, TYPE_LABELS } from "@/lib/format";
-import type { Content, Message } from "@/lib/types";
+import type { Content, Message, MindNode } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +23,15 @@ export function useFavorite() {
     },
     onError: (e) => toast.error(errMsg(e)),
   });
+}
+
+function MindTree({ node, depth = 0 }: { node: MindNode; depth?: number }) {
+  return (
+    <div className={depth ? "ml-4 border-l border-emerald-200 pl-4" : ""}>
+      <div className={`rounded-xl px-3 py-2 ${depth === 0 ? "bg-emerald-50 font-bold text-emerald-950" : "bg-slate-50 text-slate-700"}`}>{node.label}</div>
+      {node.children.length > 0 && <div className="mt-2 space-y-2">{node.children.map((child, index) => <MindTree key={`${child.label}-${index}`} node={child} depth={depth + 1} />)}</div>}
+    </div>
+  );
 }
 
 function ContentBody({ c }: { c: Content }) {
@@ -73,6 +82,16 @@ function ContentBody({ c }: { c: Content }) {
               Acessar artigo na fonte original <ExternalLink className="size-3.5" />
             </a>
           )}
+        </div>
+      );
+    case "mapa":
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+            <Network className="size-5" />
+            <span className="font-semibold">Mapa mental</span>
+          </div>
+          {d.root ? <MindTree node={d.root} /> : <p className="text-sm text-slate-500">Este mapa mental ainda não possui uma estrutura cadastrada.</p>}
         </div>
       );
     case "questao":

@@ -12,8 +12,8 @@ def stripe_defaults() -> dict:
 
 def feature_defaults() -> dict:
     return {
-        "limitado": {"pdf": True, "videoaulas": True, "resumos": True, "materiais": False, "artigos": False, "questoes": False, "simulados": False, "campus_ai": True, "ranking": True, "anotacoes": True, "favoritos": True, "relatorios": True, "benefit_labels": []},
-        "ilimitado": {"pdf": True, "videoaulas": True, "resumos": True, "materiais": True, "artigos": True, "questoes": True, "simulados": True, "campus_ai": True, "ranking": True, "anotacoes": True, "favoritos": True, "relatorios": True, "benefit_labels": []},
+        "limitado": {"pdf": True, "videoaulas": True, "resumos": True, "materiais": False, "artigos": False, "questoes": False, "mapas": True, "simulados": False, "campus_ai": True, "ranking": True, "anotacoes": True, "favoritos": True, "relatorios": True, "benefit_labels": []},
+        "ilimitado": {"pdf": True, "videoaulas": True, "resumos": True, "materiais": True, "artigos": True, "questoes": True, "mapas": True, "simulados": True, "campus_ai": True, "ranking": True, "anotacoes": True, "favoritos": True, "relatorios": True, "benefit_labels": []},
     }
 
 def _defaults() -> dict:

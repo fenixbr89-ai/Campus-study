@@ -1,6 +1,6 @@
 // Hand-written mirrors of backend/models/schemas.py — keep both in sync.
 export type Status = "publicado" | "rascunho" | "arquivado";
-export type ContentType = "video" | "pdf" | "livro" | "artigo" | "resumo" | "questao" | "material";
+export type ContentType = "video" | "pdf" | "livro" | "artigo" | "resumo" | "questao" | "material" | "mapa";
 export type Difficulty = "" | "facil" | "medio" | "dificil";
 
 export interface Message { message: string }
@@ -31,6 +31,8 @@ export interface ContentData {
   journal?: string; doi?: string; abstract?: string; keywords?: string;
   // resumo / material
   body?: string;
+  // mapa mental
+  root?: MindNode;
   // questao
   options?: string[]; correct_index?: number; explanation?: string;
 }
@@ -136,7 +138,7 @@ export interface StripeSettings {
   currency: string; monthly_price: string; yearly_price: string; webhook_secret: string; webhook_secret_configured: boolean;
 }
 export interface PlanFeatures {
-  pdf: boolean; videoaulas: boolean; resumos: boolean; materiais: boolean; artigos: boolean;
+  pdf: boolean; videoaulas: boolean; resumos: boolean; materiais: boolean; artigos: boolean; mapas: boolean;
   questoes: boolean; simulados: boolean; campus_ai: boolean; ranking: boolean; anotacoes: boolean; favoritos: boolean; relatorios: boolean; benefit_labels: string[];
 }
 export interface Settings {
