@@ -1,9 +1,0 @@
-.env
-*.env
-src/backend/.env
-src/frontend/.env
-node_modules/
-__pycache__/
-*.pyc
-*.log
-.DS_Store
