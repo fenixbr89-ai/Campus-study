@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /redefinir-senha
+Sitemap: /api/sitemap.xml
