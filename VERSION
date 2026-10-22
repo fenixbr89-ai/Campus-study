@@ -1,0 +1,5 @@
+Campus Study - catálogo curricular revisado
+Build de trabalho: 2026-10-21
+Catálogo canônico: docs/CATALOGO_DE_ASSUNTOS.json + src/backend/data/curriculum_catalog.json
+Auditoria técnica: sem disciplinas/assuntos exatos repetidos entre períodos
+Status acadêmico detalhado: docs/CURRICULOS_E_FONTES.json
