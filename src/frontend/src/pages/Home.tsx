@@ -33,7 +33,7 @@ export function SearchHero({ initial = "", autoFocus = false }: { initial?: stri
   );
 }
 
-const TOOLS = [
+const TOOLS: { to: string; icon: import("react").ComponentType<{ className?: string }>; label: string; desc: string; wide?: boolean; featured?: boolean }[] = [
   { to: "/mapas-mentais", icon: Network, label: "Mapas mentais", desc: "Visualize conexões entre os conteúdos" },
   { to: "/simulados", icon: HelpCircle, label: "Simulados", desc: "Treine com nota e explicações" },
   { to: "/biblioteca", icon: NotebookPen, label: "Salvos", desc: "Acesse seus materiais e resumos", wide: true },

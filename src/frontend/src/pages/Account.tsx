@@ -183,7 +183,6 @@ export function ProfilePage() {
         daily_goal_minutes: m.daily_goal_minutes,
         course_id: m.course_id ?? "",
         faculty: m.faculty ?? "",
-        ranking_opt_in: m.ranking_opt_in ?? true,
       });
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["home"] });
